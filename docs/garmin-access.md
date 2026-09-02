@@ -36,9 +36,14 @@ docker compose exec tonal-garmin-sync npm run bootstrap:garmin
 ### If you're running Node directly
 
 ```bash
-pip install -r python/requirements.txt
 npm run bootstrap:garmin
 ```
+
+Install [uv](https://docs.astral.sh/uv/) first. The bootstrap script uses it to
+run the pinned Python dependencies in an isolated environment; it does not
+modify your system Python. If uv is unavailable, the script falls back to
+`python3`, in which case that interpreter must already have
+`python/requirements.txt` installed.
 
 Either way you'll be asked for three things:
 
@@ -59,8 +64,11 @@ list), and **never** logged. Only the resulting tokens are saved.
 Success looks like:
 
 ```
-Success. Tokens saved to /data/garmin-tokens
+Success. Tokens saved to data/garmin-tokens
 ```
+
+Inside Docker, the same host directory is mounted at `/data`, so the container
+prints `/data/garmin-tokens` instead.
 
 ## What just got created
 
@@ -97,8 +105,8 @@ sessions** in Garmin's account settings. Both invalidate the tokens immediately.
 | --- | --- | --- |
 | `HTTP 429` / "too many requests" | Garmin is rate-limiting you | **Wait at least an hour.** Retrying in a loop makes it worse and can extend the block |
 | No MFA prompt appears, login fails | Account has MFA off, or a login method the library can't drive | Try again with MFA enabled on your Garmin account |
-| `The 'garminconnect' package is not installed` | Running outside Docker without the Python dep | `pip install -r python/requirements.txt` |
-| `Could not run "python3"` | No Python on the host | Install Python 3, set `GARMIN_PYTHON` to its path, or use the Docker command above |
+| `The 'garminconnect' package is not installed` | Running outside Docker without uv or the Python dep | Install uv, or use the Docker command above |
+| `Could not run "python3"` | Neither uv nor a usable Python is on the host | Install uv, set `GARMIN_PYTHON` to a suitable Python, or use the Docker command above |
 | Wrong password error, but the password is right | Garmin sometimes rejects logins from new IPs | Sign in to Garmin Connect in a browser from the same network first, then retry |
 | `Garmin token store missing at ...` when syncing | Bootstrap never completed, or wrote somewhere else | Check `data/garmin-tokens/garmin_tokens.json` exists and the service can read it |
 | Uploads fail with an auth error later | Tokens expired or were revoked | Re-run the bootstrap |

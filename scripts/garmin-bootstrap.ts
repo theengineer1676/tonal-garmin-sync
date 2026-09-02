@@ -23,14 +23,33 @@
  */
 import 'dotenv/config';
 import { spawnSync } from 'node:child_process';
-import { mkdirSync } from 'node:fs';
+import { existsSync, mkdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const dataDir = process.env.DATA_DIR || './data';
+const configuredDataDir = process.env.DATA_DIR || './data';
+// `.env` uses the container mount point, but the quick-start runs this script
+// on the host before the container exists. Write to the bind-mount source in
+// that case; Docker will expose the same files at /data later.
+const dataDir =
+  configuredDataDir === '/data' && !existsSync('/data') ? './data' : configuredDataDir;
 const tokenDir = path.join(dataDir, 'garmin-tokens');
-const python = process.env.GARMIN_PYTHON ?? 'python3';
 const script = fileURLToPath(new URL('../python/garmin_bootstrap.py', import.meta.url));
+const requirements = fileURLToPath(new URL('../python/requirements.txt', import.meta.url));
+
+const configuredPython = process.env.GARMIN_PYTHON;
+const containerPython = '/opt/garmin-venv/bin/python';
+const hasContainerPython = existsSync(containerPython);
+const uvAvailable =
+  !configuredPython && !hasContainerPython
+    ? spawnSync('uv', ['--version'], { stdio: 'ignore' }).status === 0
+    : false;
+
+const command =
+  configuredPython ?? (hasContainerPython ? containerPython : uvAvailable ? 'uv' : 'python3');
+const args = uvAvailable
+  ? ['run', '--no-project', '--with-requirements', requirements, 'python', script, tokenDir]
+  : [script, tokenDir];
 
 mkdirSync(tokenDir, { recursive: true });
 
@@ -39,13 +58,13 @@ console.log('Expect a 30-45 second pause during login — that delay is delibera
 
 // stdio: 'inherit' so the password and MFA prompts are a direct conversation
 // between you and Python. Nothing passes through this process.
-const res = spawnSync(python, [script, tokenDir], { stdio: 'inherit' });
+const res = spawnSync(command, args, { stdio: 'inherit' });
 
 if (res.error) {
   console.error(
-    `\nCould not run "${python}": ${res.error.message}\n` +
-      `Install Python 3, or set GARMIN_PYTHON to its path. If you're running the ` +
-      `service in Docker, use the container instead — see docs/garmin-access.md.`,
+    `\nCould not run "${command}": ${res.error.message}\n` +
+      `Install uv (recommended) or Python 3, or set GARMIN_PYTHON to a Python ` +
+      `that has python/requirements.txt installed. See docs/garmin-access.md.`,
   );
   process.exit(1);
 }

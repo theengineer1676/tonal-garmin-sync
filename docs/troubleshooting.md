@@ -4,8 +4,9 @@ Start here:
 
 ```bash
 docker compose logs -f tonal-garmin-sync
-curl http://localhost:8090/health                                    # → {"ok":true}
-curl -X POST http://localhost:8090/sync -H "x-webhook-secret: YOUR-SECRET"
+SERVICE_URL="http://$(docker compose port tonal-garmin-sync 8080)"
+curl "$SERVICE_URL/health"                                          # → {"ok":true}
+curl -X POST "$SERVICE_URL/sync" -H "x-webhook-secret: YOUR-SECRET"
 ```
 
 > Before pasting any of this into an issue, redact your workout data. See

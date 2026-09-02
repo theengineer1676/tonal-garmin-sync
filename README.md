@@ -71,6 +71,10 @@ Details and failure modes: [docs/tonal-access.md](docs/tonal-access.md).
 npm run bootstrap:garmin
 ```
 
+When you run this on the host, install [uv](https://docs.astral.sh/uv/) first;
+the script uses it to provide the pinned Python dependencies without modifying
+your system Python.
+
 You type your Garmin password and 2FA code directly into the prompt — they're
 never stored. This mints a token store the service reuses for about a year.
 Expect a 30–45 second pause during login; that's deliberate, not a hang.
@@ -80,7 +84,7 @@ Details: [docs/garmin-access.md](docs/garmin-access.md).
 
 ```bash
 docker compose up -d --build
-curl http://localhost:8090/health     # → {"ok":true}
+curl "http://$(docker compose port tonal-garmin-sync 8080)/health"  # → {"ok":true}
 ```
 
 **5. Sync your existing workouts, so you can see it working**
