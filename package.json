@@ -22,7 +22,7 @@
     "@dlwiest/ts-tonal-client": "^0.2.1",
     "@garmin/fitsdk": "^21.141.0",
     "dotenv": "^16.4.5",
-    "fastify": "^5.8.5"
+    "fastify": "^5.12.1"
   },
   "devDependencies": {
     "@types/node": "^20.14.0",
