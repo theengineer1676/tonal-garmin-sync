@@ -34,16 +34,40 @@ export class Store {
 
   async init(): Promise<void> {
     await fs.mkdir(path.dirname(this.file), { recursive: true });
+    const onDisk = await this.readDisk();
+    if (onDisk) {
+      this.data = { syncedActivities: onDisk };
+    } else {
+      await this.flush();
+    }
+  }
+
+  /**
+   * Pick up records another process wrote since we last looked.
+   *
+   * The server holds this store for its whole lifetime, but `npm run backfill`
+   * (or any one-off script) runs as a separate process against the same file.
+   * Without this, the server would never see those records — and worse, its
+   * next write would replace the file with its stale copy and erase them.
+   * Call before a sync pass so dedup reflects the file, not just memory.
+   */
+  async refresh(): Promise<void> {
+    const onDisk = await this.readDisk();
+    if (onDisk) {
+      // Union; on a clash keep ours — it can only be the same activity anyway.
+      this.data.syncedActivities = { ...onDisk, ...this.data.syncedActivities };
+    }
+  }
+
+  /** The file's records, or undefined if it doesn't exist yet. */
+  private async readDisk(): Promise<Record<string, SyncRecord> | undefined> {
     try {
       const raw = await fs.readFile(this.file, 'utf8');
       const parsed = JSON.parse(raw) as Partial<StoreData>;
-      this.data = { syncedActivities: parsed.syncedActivities ?? {} };
+      return parsed.syncedActivities ?? {};
     } catch (err: unknown) {
-      if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
-        await this.flush();
-      } else {
-        throw err;
-      }
+      if ((err as NodeJS.ErrnoException).code === 'ENOENT') return undefined;
+      throw err;
     }
   }
 
@@ -77,7 +101,10 @@ export class Store {
   }
 
   private async writeOnce(): Promise<void> {
-    const tmp = `${this.file}.tmp`;
+    // Merge first so a write never drops another process's records. The pid in
+    // the temp name keeps two processes from clobbering each other's temp file.
+    await this.refresh();
+    const tmp = `${this.file}.${process.pid}.tmp`;
     await fs.writeFile(tmp, JSON.stringify(this.data, null, 2), 'utf8');
     await fs.rename(tmp, this.file);
   }

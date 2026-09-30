@@ -133,6 +133,7 @@ export class SyncService {
   private async doSyncRecent(count: number, options: SyncRecentOptions): Promise<SyncResult[]> {
     // A dry run never touches Garmin, so don't demand a token store for it.
     await this.ensureConnected(!options.dryRun);
+    await this.store.refresh();
 
     const summaries = await this.callTonal(() => this.tonal!.getRecentCompletedActivities(count));
     if (summaries.length === 0) {
